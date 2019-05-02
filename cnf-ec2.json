@@ -1,0 +1,485 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "",
+	"Parameters": {
+		"AppID": {
+			"Type": "String"
+		},
+		"UserID": {
+			"Type": "String"
+		},
+		"Role": {
+			"Type": "String",
+			"Default": "DB"
+		},
+		"Environment": {
+			"Type": "String",
+			"Description": "The Environment for Deployment",
+			"Default": "NonProd",
+			"AllowedValues": ["NonProd", "Prod", "Staging"]
+		},
+		"Name": {
+			"Type": "String"
+		},
+		"InstanceType": {
+			"Type": "String"
+		},
+		"AMI": {
+			"Type": "String"
+		},
+		"Tenancy": {
+			"Type": "String",
+			"Default": "default",
+			"AllowedValues": ["default", "dedicated"]
+		},
+		"AdditionalVolume1Size": {
+			"Type": "String",
+			"Default": "-1",
+			"Description": "Specify the volume size in GB. If additional Volume Not Needed specify -1"
+		},
+		"AdditionalVolume1MountPoint": {
+			"Type": "String",
+			"Default": "/dev/sdg",
+			"Description": "Specify the volume mount point"
+		},
+		"AdditionalVolume1Snapshot": {
+			"Type": "String",
+			"Default": "",
+			"Description": "Specify the Snapshot ID for the volume"
+		},
+		"AdditionalVolume1Replace": {
+			"Type": "String",
+			"Default": "False",
+			"AllowedValues": ["False", "True"],
+			"Description": "Specify True if the volume for the given mountpoint already available"
+		},
+		"AdditionalVolume2Size": {
+			"Type": "String",
+			"Default": "-1",
+			"Description": "Specify the volume size in GB. If additional Volume Not Needed specify -1"
+		},
+		"AdditionalVolume2MountPoint": {
+			"Type": "String",
+			"Default": "/dev/sdf",
+			"Description": "Specify the volume mount point"
+		},
+		"AdditionalVolume2Snapshot": {
+			"Type": "String",
+			"Default": "",
+			"Description": "Specify the Snapshot ID for the volume"
+		},
+		"AdditionalVolume2Replace": {
+			"Type": "String",
+			"Default": "False",
+			"AllowedValues": ["False", "True"],
+			"Description": "Specify True if the volume for the given mountpoint already available"
+		},
+		"KMSKeyAlias": {
+			"Type": "String",
+			"Description": "KMS Key to be using for encryption. It can either be complete Key ARN or key Alias starting with alias/"
+		},
+		"Subnet": {
+			"Type": "String",
+			"Description": "Subnet for the EC2 Instance",
+			"Default": "subnet-12fafd49"
+		},
+		"IAMInstanceProfile": {
+			"Type": "String",
+			"Description": "Instance Profile for the EC2"
+		},
+		"SecurityGroups": {
+			"Type": "CommaDelimitedList",
+			"Description": "Specify the security groups to be attached",
+			"Default": "sg-84e883fa,sg-e2075a9c"
+		},
+		"UserData": {
+			"Type": "String",
+			"Description": "Userdata Script to be Executed",
+			"Default": ""
+		}
+	},
+	"Conditions": {
+		"UseAdditionalVolume1": {
+			"Fn::Or": [{
+					"Fn::Not": [{
+							"Fn::Equals": [{
+									"Ref": "AdditionalVolume1Size"
+								}, "-1"]
+						}
+					]
+				}, {
+					"Condition": "UseAdditionalVolume1Snapshot"
+				}
+			]
+
+		},
+		"UseAdditionalVolume1Size": {
+			"Fn::Not": [{
+					"Fn::Equals": [{
+							"Ref": "AdditionalVolume1Size"
+						}, "-1"]
+				}
+			]
+
+		},
+		"UseAdditionalVolume1Replacement": {
+			"Fn::Equals": [{
+					"Ref": "AdditionalVolume1Replace"
+				}, "True"]
+		},
+		"UseAdditionalVolume1Snapshot": {
+			"Fn::Not": [{
+					"Fn::Equals": [{
+							"Ref": "AdditionalVolume1Snapshot"
+						}, ""]
+				}
+			]
+
+		},
+		"UseAdditionalVolume2": {
+			"Fn::Or": [{
+					"Fn::Not": [{
+							"Fn::Equals": [{
+									"Ref": "AdditionalVolume2Size"
+								}, "-1"]
+						}
+					]
+				}, {
+					"Condition": "UseAdditionalVolume2Snapshot"
+				}
+			]
+
+		},
+		"UseAdditionalVolume2Size": {
+			"Fn::Not": [{
+					"Fn::Equals": [{
+							"Ref": "AdditionalVolume2Size"
+						}, "-1"]
+				}
+			]
+
+		},
+		"UseAdditionalVolume2Snapshot": {
+			"Fn::Not": [{
+					"Fn::Equals": [{
+							"Ref": "AdditionalVolume2Snapshot"
+						}, ""]
+				}
+			]
+
+		},
+		"UseAdditionalVolume2Replacement": {
+			"Fn::Equals": [{
+					"Ref": "AdditionalVolume2Replace"
+				}, "True"]
+		},
+		"UseIAM": {
+			"Fn::Not": [{
+					"Fn::Equals": [{
+							"Ref": "IAMInstanceProfile"
+						}, ""]
+				}
+			]
+
+		}
+	},
+	"Resources": {
+		"AdditionalEBSVolume1": {
+			"Condition": "UseAdditionalVolume1",
+			"Type": "AWS::EC2::Volume",
+			"Properties": {
+				"Size": {
+					"Fn::If": [
+						"UseAdditionalVolume1Size", {
+							"Ref": "AdditionalVolume1Size"
+						}, {
+							"Ref": "AWS::NoValue"
+						}
+
+					]
+				},
+				"VolumeType": "gp2",
+				"Encrypted": {
+					"Fn::If": [
+						"UseAdditionalVolume1Snapshot", {
+							"Ref": "AWS::NoValue"
+						}, true
+
+					]
+				},
+				"SnapshotId": {
+					"Fn::If": [
+						"UseAdditionalVolume1Snapshot", {
+							"Ref": "AdditionalVolume1Snapshot"
+						}, {
+							"Ref": "AWS::NoValue"
+						}
+
+					]
+				},
+				"KmsKeyId": {
+					"Fn::If": [
+						"UseAdditionalVolume1Snapshot", {
+							"Ref": "AWS::NoValue"
+						}, {
+							"Ref": "KMSKeyAlias"
+						}
+
+					]
+				},
+				"AvailabilityZone": {
+					"Fn::GetAtt": ["EC2Instance", "AvailabilityZone"]
+				},
+				"Tags": [{
+						"Key": "Name",
+						"Value": {
+							"Fn::Join": ["-", [{
+										"Ref": "AWS::StackName"
+									}, {
+										"Ref": "Name"
+									}, "Additional Volume 1"]]
+						}
+					}, {
+						"Key": "Userid",
+						"Value": {
+							"Ref": "UserID"
+						}
+					}, {
+						"Key": "Vsad",
+						"Value": {
+							"Ref": "AppID"
+						}
+					}, {
+						"Key": "Role",
+						"Value": {
+							"Ref": "Role"
+						}
+					}
+				]
+			}
+		},
+		"MountPoint1": {
+			"Type": "AWS::EC2::VolumeAttachment",
+			"Condition": "UseAdditionalVolume1",
+			"Properties": {
+				"InstanceId": {
+					"Ref": "EC2Instance"
+				},
+				"VolumeId": {
+					"Ref": "AdditionalEBSVolume1"
+				},
+				"Device": {
+					"Ref": "AdditionalVolume1MountPoint"
+				}
+			}
+		},
+		"AdditionalEBSVolume2": {
+			"Condition": "UseAdditionalVolume2",
+			"Type": "AWS::EC2::Volume",
+			"Properties": {
+				"Size": {
+					"Fn::If": [
+						"UseAdditionalVolume2Size", {
+							"Ref": "AdditionalVolume2Size"
+						}, {
+							"Ref": "AWS::NoValue"
+						}
+
+					]
+				},
+				"VolumeType": "gp2",
+				"Encrypted": {
+					"Fn::If": [
+						"UseAdditionalVolume2Snapshot", {
+							"Ref": "AWS::NoValue"
+						}, true
+
+					]
+				},
+				"SnapshotId": {
+					"Fn::If": [
+						"UseAdditionalVolume2Snapshot", {
+							"Ref": "AdditionalVolume2Snapshot"
+						}, {
+							"Ref": "AWS::NoValue"
+						}
+
+					]
+				},
+				"KmsKeyId": {
+					"Fn::If": [
+						"UseAdditionalVolume2Snapshot", {
+							"Ref": "AWS::NoValue"
+						}, {
+							"Ref": "KMSKeyAlias"
+						}
+
+					]
+				},
+				"AvailabilityZone": {
+					"Fn::GetAtt": ["EC2Instance", "AvailabilityZone"]
+				},
+				"Tags": [{
+						"Key": "Name",
+						"Value": {
+							"Fn::Join": ["-", [{
+										"Ref": "AWS::StackName"
+									}, {
+										"Ref": "Name"
+									}, "Additional Volume 1"]]
+						}
+					}, {
+						"Key": "Userid",
+						"Value": {
+							"Ref": "UserID"
+						}
+					}, {
+						"Key": "Vsad",
+						"Value": {
+							"Ref": "AppID"
+						}
+					}, {
+						"Key": "Role",
+						"Value": {
+							"Ref": "Role"
+						}
+					}
+				]
+			}
+		},
+		"MountPoint2": {
+			"Type": "AWS::EC2::VolumeAttachment",
+			"Condition": "UseAdditionalVolume2",
+			"Properties": {
+				"InstanceId": {
+					"Ref": "EC2Instance"
+				},
+				"VolumeId": {
+					"Ref": "AdditionalEBSVolume2"
+				},
+				"Device": {
+					"Ref": "AdditionalVolume2MountPoint"
+				}
+			}
+		},
+		"EC2Instance": {
+			"Type": "AWS::EC2::Instance",
+			"Properties": {
+				"InstanceType": {
+					"Ref": "InstanceType"
+				},
+				"ImageId": {
+					"Ref": "AMI"
+				},
+				"Tenancy": {
+					"Ref": "Tenancy"
+				},
+
+				"BlockDeviceMappings": [{
+						"Fn::If": [
+							"UseAdditionalVolume1Replacement", {
+								"DeviceName": {
+									"Ref": "AdditionalVolume1MountPoint"
+								},
+								"NoDevice": {}
+							}, {
+								"Ref": "AWS::NoValue"
+							}
+						]
+					}, {
+						"Fn::If": [
+							"UseAdditionalVolume2Replacement", {
+								"DeviceName": {
+									"Ref": "AdditionalVolume2MountPoint"
+								},
+								"NoDevice": {}
+							}, {
+								"Ref": "AWS::NoValue"
+							}
+						]
+					}
+
+				],
+				"NetworkInterfaces": [{
+						"AssociatePublicIpAddress": "false",
+						"DeviceIndex": "0",
+						"GroupSet": {
+							"Ref": "SecurityGroups"
+						},
+						"SubnetId": {
+							"Ref": "Subnet"
+						}
+					}
+				],
+				"IamInstanceProfile": {
+					"Fn::If": [
+						"UseIAM", {
+							"Ref": "IAMInstanceProfile"
+						}, {
+							"Ref": "AWS::NoValue"
+						}
+					]
+				},
+				"Tags": [{
+						"Key": "Userid",
+						"Value": {
+							"Ref": "UserID"
+						}
+					}, {
+						"Key": "Vsad",
+						"Value": {
+							"Ref": "AppID"
+						}
+					}, {
+						"Key": "Role",
+						"Value": {
+							"Ref": "Role"
+						}
+					}, {
+						"Key": "Name",
+						"Value": {
+							"Ref": "Name"
+						}
+					}, {
+						"Key": "nostop",
+						"Value": ""
+					}
+				],
+				"UserData": {
+					"Ref": "UserData"
+				}
+			}
+		}
+	},
+	"Outputs": {
+		"InstanceId": {
+			"Description": "InstanceId of the newly created EC2 instance",
+			"Value": {
+				"Ref": "EC2Instance"
+			}
+		},
+		"AZ": {
+			"Description": "Availability Zone of the newly created EC2 instance",
+			"Value": {
+				"Fn::GetAtt": [
+					"EC2Instance",
+					"AvailabilityZone"
+				]
+			}
+		},
+		"PrivateIP": {
+			"Description": "PrivateIP of the newly created EC2 instance",
+			"Value": {
+				"Fn::GetAtt": [
+					"EC2Instance",
+					"PrivateIp"
+				]
+			}
+		},
+		"StackName": {
+			"Value": {
+				"Ref": "AWS::StackName"
+			}
+		}
+	}
+}

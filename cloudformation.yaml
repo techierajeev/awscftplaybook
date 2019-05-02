@@ -1,0 +1,22 @@
+---
+- name: aws stack provisioning 
+  hosts: localhost
+  connection: local
+  tasks:
+  - name: create a cloudformation stack
+    cloudformation:
+      stack_name: "ansible-cloudformation"
+      state: "present"
+      region: "us-east-1"
+      disable_rollback: true
+      template: "cnf-ec2.json"
+      template_parameters:
+        InstanceType: "m1.small"
+        AMI: ""
+      tags:
+        Stack: "cft-ec2"
+    register: stack
+    
+  - name: show the output
+    debug:
+      var: stack.stack_outputs
